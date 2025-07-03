@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -66,6 +67,10 @@ func NewClient(key string, opts ...ClientOption) *Client {
 	return c
 }
 
+func (c *Client) CompressionCount() int {
+	return c.compressionCount
+}
+
 func (c *Client) request(method string, endpoint string, body any) (rsp *resty.Response, err error) {
 	req := c.client.R().SetBody(body)
 
@@ -91,6 +96,13 @@ func (c *Client) request(method string, endpoint string, body any) (rsp *resty.R
 	}
 	if err != nil {
 		return nil, err
+	}
+
+	if compressionCount := rsp.Header().Get("Compression-Count"); compressionCount != "" {
+		cc, _ := strconv.Atoi(compressionCount)
+		if cc >= c.compressionCount {
+			c.compressionCount = cc
+		}
 	}
 
 	if status := rsp.StatusCode(); status >= http.StatusOK && status < http.StatusMultipleChoices {
