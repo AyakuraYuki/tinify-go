@@ -2,6 +2,7 @@ package tinify
 
 import (
 	"errors"
+	"net/http"
 	"os"
 	"strings"
 
@@ -29,23 +30,6 @@ type Source struct {
 	commands map[string]any
 }
 
-func newSource(url string, commands map[string]any) *Source {
-	s := &Source{
-		url:      url,
-		commands: make(map[string]any),
-	}
-	if len(commands) > 0 {
-		s.commands = commands
-	}
-	return s
-}
-
-func fromResponse(rsp *resty.Response) (source *Source, err error) {
-	location := rsp.Header().Get("Location")
-	source = newSource(location, nil)
-	return source, nil
-}
-
 func (c *Client) FromFile(path string) (source *Source, err error) {
 	buffer, err := os.ReadFile(path)
 	if err != nil {
@@ -55,7 +39,7 @@ func (c *Client) FromFile(path string) (source *Source, err error) {
 }
 
 func (c *Client) FromBuffer(buffer []byte) (source *Source, err error) {
-	rsp, err := c.request(methodPOST, "/shrink", buffer)
+	rsp, err := c.request(http.MethodPost, "/shrink", buffer)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +59,7 @@ func (c *Client) FromURL(u string) (source *Source, err error) {
 		},
 	}
 
-	rsp, err := c.request(methodPOST, "/shrink", body)
+	rsp, err := c.request(http.MethodPost, "/shrink", body)
 	if err != nil {
 		return nil, err
 	}
@@ -83,12 +67,21 @@ func (c *Client) FromURL(u string) (source *Source, err error) {
 	return
 }
 
-func (c *Client) ToFile(source *Source, dst string) (err error) {
-	result, err := c.toResult(source)
-	if err != nil {
-		return err
+func fromResponse(rsp *resty.Response) (source *Source, err error) {
+	location := rsp.Header().Get("Location")
+	source = newSource(location, nil)
+	return source, nil
+}
+
+func newSource(url string, commands map[string]any) *Source {
+	s := &Source{
+		url:      url,
+		commands: make(map[string]any),
 	}
-	return result.ToFile(dst)
+	if len(commands) > 0 {
+		s.commands = commands
+	}
+	return s
 }
 
 func (c *Client) Resize(source *Source, option *ResizeOption) (err error) {
@@ -103,12 +96,20 @@ func (c *Client) Resize(source *Source, option *ResizeOption) (err error) {
 	return nil
 }
 
+func (c *Client) ToFile(source *Source, dst string) (err error) {
+	result, err := c.toResult(source)
+	if err != nil {
+		return err
+	}
+	return result.ToFile(dst)
+}
+
 func (c *Client) toResult(source *Source) (result *Result, err error) {
 	if source == nil || len(source.url) == 0 {
 		return nil, errors.New("no valid source")
 	}
 
-	rsp, err := c.request(methodGET, source.url, source.commands)
+	rsp, err := c.request(http.MethodGet, source.url, source.commands)
 	if err != nil {
 		return nil, err
 	}
