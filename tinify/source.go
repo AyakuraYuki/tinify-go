@@ -17,6 +17,7 @@ const (
 	ResizeMethodScale ResizeMethod = "scale"
 	ResizeMethodFit   ResizeMethod = "fit"
 	ResizeMethodCover ResizeMethod = "cover"
+	ResizeMethodThumb ResizeMethod = "thumb"
 )
 
 type ResizeOption struct {
@@ -28,6 +29,7 @@ type ResizeOption struct {
 type Source struct {
 	url      string
 	commands map[string]any
+	resize   bool
 }
 
 func (c *Client) FromFile(path string) (source *Source, err error) {
@@ -93,6 +95,7 @@ func (c *Client) Resize(source *Source, option *ResizeOption) (err error) {
 	}
 
 	source.commands["resize"] = option
+	source.resize = true
 	return nil
 }
 
@@ -109,7 +112,12 @@ func (c *Client) toResult(source *Source) (result *Result, err error) {
 		return nil, errors.New("no valid source")
 	}
 
-	rsp, err := c.request(http.MethodGet, source.url, source.commands)
+	method := http.MethodGet
+	if source.resize {
+		method = http.MethodPost
+	}
+
+	rsp, err := c.request(method, source.url, source.commands)
 	if err != nil {
 		return nil, err
 	}
